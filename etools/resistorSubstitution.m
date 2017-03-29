@@ -45,7 +45,7 @@ p.parse(varargin{:});   % Run created parser on inputs
 %
 
 
-% E96 Series as Lookup-Table
+% E3 to E96 Tables
 % SRC: http://www.elektronik-kompendium.de/sites/bau/1109071.htm
 %
 ser.E3  =   [   1.00 2.20 4.70                                              ];
