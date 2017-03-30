@@ -103,7 +103,7 @@ end;
 % build permutation table
 %
 permTable(1:p.Results.subsCnt) = 1;                                                                                     % init permutation table
-while(length(find(permTable(end,1:p.Results.subsCnt) == length(avlValues))) < p.Results.subsCnt)                        % loop runs until full permutation is created
+for (i=1:length(avlValues)^p.Results.subsCnt-1)                                                                         % loop runs until full permutation is created                      
     permTable(end+1,1:p.Results.subsCnt) = [permTable(end,1:p.Results.subsCnt-1) permTable(end,p.Results.subsCnt)+1];   % increment last index in table
     for i=p.Results.subsCnt:-1:2
         if(permTable(end,i) > length(avlValues))                                                                        % digit overflow
