@@ -15,7 +15,7 @@
 
 
 
-function subsResistors = resistorSubstitution(varargin)
+function solutions = resistorSubstitution(varargin)
 %%
 %%  Usage
 %%  =====
@@ -30,7 +30,7 @@ function subsResistors = resistorSubstitution(varargin)
 
 
 % parse input
-% SRC: https://www.gnu.org/software/octave/doc/interpreter/Variable_002dlength-Argument-Lists.html
+% SRC: https://www.gnu.org/software/octave/doc/interpreter/Multiple-Return-Values.html#XREFinputParser
 % SRC: https://de.mathworks.com/help/matlab/ref/inputparser.addoptional.html
 %
 p               = inputParser();            % create object
@@ -38,10 +38,11 @@ p.FunctionName  = 'resistorSubstitution';   % set function name
 
 p.addRequired('value', @isnumeric);             % mandatory argument
 
-p.addOptional('tolerance', 0.01, @isnumeric);                                                               % tolerance with 0.01 default
 p.addOptional('eseries', 'E24', @(x) any (strcmp (x, {'E3', 'E6', 'E12', 'E24', 'E48', 'E96', 'None'})));   % Info: https://de.wikipedia.org/wiki/E-Reihe
 p.addOptional('resistors', [1 10e6], @isvector);                                                            % Min/max of resistor for E-Series generation, or collection of resistors
 p.addOptional('subsCnt', 2, @isnumeric);                                                                    % allowed number of resistors for substituion
+p.addOptional('numSolution', 7, @isnumeric);                                                                % maximum number of solutions
+p.addSwitch('verbose');                                                                                     % if set console text output
 
 p.parse(varargin{:});   % Run created parser on inputs
 %
@@ -132,8 +133,36 @@ for i=1:row
     end;
 end;
 permTable(rmvIdx,:) = [];
+%
 
 
+
+% caclulate resistance and store top values
+%
+solutions   = struct([]);                                               % create structure array
+for i=1:length(permTable)
+	% build new element
+	act.Rused   = avlValues(permTable(i,:));                            % store used resistor values
+	act.Rsub    = 1/sum([1./avlValues(permTable(i,:))]);                % Rges = 1 / (1/R1 + 1/R2 + 1/Rn + ...)
+	act.Err     = abs((act.Rsub - p.Results.value))/p.Results.value;    % calculate relative mismatch
+	
+	% insert in known substitution list
+	if (length(solutions) == 0)                             % check for beginning of new list
+		solutions(1)    = act;                              % store first structure element in list
+	else                                                    % apply insert sort
+		for n=1:length(solutions)
+			if(solutions(n).Err > act.Err)                  % check error and insert of element error is larger then actual elemment
+				solutions(n+1:end+1)    = solutions(n:end); % shift all elements to next position
+				solutions(n)            = act;              % insert new element
+				break;
+			end;
+		end;
+	end;
+	
+	% if longer then desired, cut off
+	solutions(p.Results.numSolution+1:end)  = [];   % discard all not needed elements
+end;
+%
 
 
 %permTable
@@ -142,55 +171,5 @@ permTable(rmvIdx,:) = [];
 
 
 
-
-% vary resistor values
-%
-%substitutionTbl = [];
-    
-
-    
-    
-    
-    %% iterate over values
-    %for j=1:length(avlValues)
-    %   % build resistor combination
-    %   act.resIdx      = [];           % clear table
-    %   act.resIdx(1:i) = 1;            % init permutation table
-    %   
-    %   % permutation loop
-    %   while (act.resIdx(1) <= j)
-    %       % calculate resistance
-    %       act.R   = 1/sum([1./avlValues(act.resIdx)]);            % Rges = 1 / (1/R1 + 1/R2 + 1/Rn + ...)
-    %       act.Err = (act.R - p.Results.values)/p.Results.values;  % calculate relative mismatch
-    %       
-    %       % increment permutation table
-    %       for k=length(act.resIdx):-1:1
-    %           if (act.resIdx(k) == length(avlValues))
-    %               act.resIdx(k) = 1;
-    %               
-    %               
-    %               
-    %           end;
-    %       end;
-    %       act.resIdx(end) = act.resIdx(end)+1
-    %   
-    %   
-    %   end;
-    %   % increment
-    %   
-    %   
-    %   
-    %   
-    %   %act.R
-
-    %end;
-end;
-%
-
-
-%p.Results.value
-%p.Results.tolerance
-%p.Results.eseries
-%p.Results.resistors
 
 
