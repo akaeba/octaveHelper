@@ -114,8 +114,29 @@ for (i=1:length(avlValues)^p.Results.subsCnt-1)                                 
 end;
 %
 
-permTable
 
+
+% remove double index from list, cause it makes no difference to cal value of R1||R2 or R2||R1
+%
+[row col]   = size(permTable);
+rmvIdx      = [];
+for i=1:row
+    if (sum(isnan(permTable(i,:))) == 0)                                                    % check if unvalid marked table was found
+        rmvPerm             = perms(permTable(i,:));                                        % build from this line of permutation table, all permutation to look in data set
+        if (range(rmvPerm) == 0)                                                            % skip all matrix uniformed value matrixes
+            rmvPerm(1:end,1:col) = 0;                                                       % make removing table invalid
+        end;
+        rmvIdxTemp              = find(ismember(permTable, rmvPerm(2:end,:), 'rows') == 1); % get indexes from all lines who matches with permutations
+        permTable(rmvIdxTemp,:) = NaN;                                                      % mark dataset is invalid
+        rmvIdx                  = [rmvIdx rmvIdxTemp];                                      % collect for one-shoot remove
+    end;
+end;
+permTable(rmvIdx,:) = [];
+
+
+
+
+%permTable
 
 
 
@@ -165,12 +186,6 @@ permTable
     %end;
 end;
 %
-
-
-
-
-
-avlValues
 
 
 %p.Results.value
