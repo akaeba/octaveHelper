@@ -190,7 +190,10 @@ end;
 % User Output
 %
 if (p.Results.brief == false)
-    toc;                        % print measured time to console
+    toc;                                                                                                            % print measured time to console
+    if (solutions(1).Err > p.Results.relSubstitutionError)
+        warning(sprintf('%s%0.2e%s', 'Relative Resistor Substitution Error with ', solutions(1).Err, ' not met'));  % warning of not meeting of relative error constraint
+    end;
 
 
 end;
