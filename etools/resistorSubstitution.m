@@ -83,7 +83,7 @@ ser.E96 =   [   1.00 1.02 1.05 1.07 1.10 1.13 1.15 1.18 1.21 1.24 1.27 1.30 ...
 % Start Processing Time measurement
 %
 if (p.Results.brief == false)
-	tic;
+    tic;
 end;
 %
 
@@ -129,69 +129,58 @@ end;
 
 
 
-% build permutation table
+% calculate resistor permutations
 %
-permTable(1:p.Results.numSubstitutionResistors) = 1;                                                                                                                        % init permutation table
-for (i=1:length(avlValues)^p.Results.numSubstitutionResistors-1)                                                                                                            % loop runs until full permutation is created                      
-    permTable(end+1,1:p.Results.numSubstitutionResistors) = [permTable(end,1:p.Results.numSubstitutionResistors-1) permTable(end,p.Results.numSubstitutionResistors)+1];    % increment last index in table
-    for i=p.Results.numSubstitutionResistors:-1:2
-        if(permTable(end,i) > length(avlValues))                                                                                                                            % digit overflow
-            permTable(end,i)    = 1;
-            permTable(end,i-1)  = permTable(end,i-1)+1;
-        end;
-    end;
-end;
-%
-
-
-
-% remove double index from list, cause it makes no difference to cal value of R1||R2 or R2||R1
-%
-[row col]   = size(permTable);
-rmvIdx      = [];
-for i=1:row
-    if (sum(isnan(permTable(i,:))) == 0)                                                    % check if unvalid marked table was found
-        rmvPerm             = perms(permTable(i,:));                                        % build from this line of permutation table, all permutation to look in data set
-        if (range(rmvPerm) == 0)                                                            % skip all matrix uniformed value matrixes
-            rmvPerm(1:end,1:col) = 0;                                                       % make removing table invalid
-        end;
-        rmvIdxTemp              = find(ismember(permTable, rmvPerm(2:end,:), 'rows') == 1); % get indexes from all lines who matches with permutations
-        permTable(rmvIdxTemp,:) = NaN;                                                      % mark dataset is invalid
-        rmvIdx                  = [rmvIdx rmvIdxTemp'];                                     % collect for one-shoot remove
-    end;
-end;
-permTable(rmvIdx',:) = [];
-%
-
-
-
-% caclulate resistance and store top values
-%
-solutions   = struct([]);                                               % create structure array
-for i=1:length(permTable)
-    % build new element
-    act.Rused   = avlValues(permTable(i,:));                            % store used resistor values
-    act.Rsub    = 1/sum([1./avlValues(permTable(i,:))]);                % Rges = 1 / (1/R1 + 1/R2 + 1/Rn + ...)
-    act.Err     = abs((act.Rsub - p.Results.value))/p.Results.value;    % calculate relative mismatch
+act.Rused                                       = [Inf];                                                % fill with dummy data to avoid check for first element in loop
+act.Rsub                                        = [Inf];                                                % 
+act.Err                                         = 1;                                                    %
+solutions                                       = act;                                                  % create structure array
+varies(1:p.Results.numSubstitutionResistors)    = 1;                                                    % init Array
+calced                                          = [];                                                   % collection of tryed permutations
+maxLoopIteration                                = length(avlValues)^p.Results.numSubstitutionResistors; % maximum number of loop iteration for full decicion tree calculation
+exitLoop                                        = false;
+while(exitLoop == false)
+    % calculate notryed resistor combination
+    if(sum(ismember(calced, varies(end,:), 'rows')) == 0)                   % check if actual permutation was once again tryed
+        % build permutation from actual veriations
+        actCalced   = unique(perms(varies(end,:)), 'rows');                 % in parallel mode makes no difference to calc R1||R2 or R2||R1
+        calced      = vertcat(calced, actCalced);                           % save varied values
     
-    % insert in known substitution list
-    if (length(solutions) == 0)                             % check for beginning of new list
-        solutions(1)    = act;                              % store first structure element in list
-    else                                                    % apply insert sort
+        % calculate actual resistor combination
+        act.Rused   = avlValues(varies(end,:));                             % store used resistor values
+        act.Rsub    = 1/sum([1./avlValues(varies(end,:))]);                 % Rges = 1 / (1/R1 + 1/R2 + 1/Rn + ...)
+        act.Err     = abs((act.Rsub - p.Results.value))/p.Results.value;    % calculate relative mismatch
+        
+        % inject element in solution table  
         for n=1:length(solutions)
-            if(solutions(n).Err > act.Err)                  % check error and insert of element error is larger then actual elemment
-                solutions(n+1:end+1)    = solutions(n:end); % shift all elements to next position
-                solutions(n)            = act;              % insert new element
+            if(solutions(n).Err > act.Err)                                  % check error and insert of element error is larger then actual elemment
+                solutions(n+1:end+1)                    = solutions(n:end); % shift all elements to next position
+                solutions(n)                            = act;              % insert new element
+                solutions(p.Results.numSolution+1:end)  = [];               % discard all not needed elements
                 break;
             end;
         end;
+        
+        % check if actual combination meets requirements
+        if (act.Err <= p.Results.relSubstitutionError)                      % leave calculation on first occurance
+            break;
+        end;
     end;
     
-    % if longer then desired, cut off
-    solutions(p.Results.numSolution+1:end)  = [];   % discard all not needed elements
-    
-    if (act.Err <= p.Results.relSubstitutionError) % leave calculation on first occurance
-        break;
+    % build new resistor combination
+    varies(end+1,1:p.Results.numSubstitutionResistors) = [varies(end,1:p.Results.numSubstitutionResistors-1) varies(end,p.Results.numSubstitutionResistors)+1]; % increment last index in table
+    for n=p.Results.numSubstitutionResistors:-1:2                                                                                                               % downto 2, cause left value index needs no overflow, then we are finished
+        if(varies(end,n) > length(avlValues))                                                                                                                   % digit overflow
+            varies(end,n)   = 1;
+            varies(end,n-1) = varies(end,n-1)+1;
+        end;
+    end;
+        
+    % check for next iteration
+    [rowCalced colCalced]   = size(calced);     % get size of caclulated table
+    [rowVaries colVaries]   = size(varies);     %
+    if (rowCalced >= maxLoopIteration || rowVaries >= maxLoopIteration)
+        exitLoop = true;
     end;
 end;
 %
@@ -201,7 +190,7 @@ end;
 % User Output
 %
 if (p.Results.brief == false)
-	toc;                        % print measured time to console
+    toc;                        % print measured time to console
 
 
 end;
