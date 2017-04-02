@@ -20,11 +20,11 @@ function solutions = resistorSubstitution(varargin)
 %%  Usage
 %%  =====
 %%
-%%  value:          double                      -> resistor value to replace;
-%%  tolerance:      double          [ 1% ]      -> residualer relative deviation (tolerance = dR/R);
-%%  eseries:        string          [ E24 ]     -> used E series for searching;
-%%  resistors:      double array    [ 1 10e6 ]  -> collection of resistors or min/max value for eseries;
-%%  subsCnt:        integer         [ 2 ]       -> maximum number of resistors for substitution;     
+%%  value:                      double                      -> resistor value to replace;
+%%  tolerance:                  double          [ 1% ]      -> residualer relative deviation (tolerance = dR/R);
+%%  eseries:                    string          [ E24 ]     -> used E series for searching;
+%%  resistanceRange:            double array    [ 1 10e6 ]  -> collection of resistors or min/max value for eseries;
+%%  numSubstitutionResistors:   integer         [ 2 ]       -> maximum number of resistors for substitution;     
 %%
 
 
@@ -39,10 +39,10 @@ p.FunctionName  = 'resistorSubstitution';   % set function name
 p.addRequired('value', @isnumeric);             % mandatory argument
 
 p.addOptional('eseries', 'E24', @(x) any (strcmp (x, {'E3', 'E6', 'E12', 'E24', 'E48', 'E96', 'None'})));   % Info: https://de.wikipedia.org/wiki/E-Reihe
-p.addOptional('resistors', [1 10e6], @isvector);                                                            % Min/max of resistor for E-Series generation, or collection of resistors
-p.addOptional('subsCnt', 2, @isnumeric);                                                                    % allowed number of resistors for substituion
+p.addOptional('resistanceRange', [1 10e6], @isvector);                                                      % Min/max of resistor for E-Series generation, or collection of resistors
+p.addOptional('numSubstitutionResistors', 2, @isnumeric);                                                                    % allowed number of resistors for substituion
 p.addOptional('numSolution', 7, @isnumeric);                                                                % maximum number of solutions
-p.addSwitch('verbose');                                                                                     % if set console text output
+p.addSwitch('brief');                                                                                     	% if set console output is disabled
 
 p.parse(varargin{:});   % Run created parser on inputs
 %
@@ -79,15 +79,15 @@ ser.E96 =   [   1.00 1.02 1.05 1.07 1.10 1.13 1.15 1.18 1.21 1.24 1.27 1.30 ...
 % build available resistor table
 %
 if (strcmp('None', p.Results.eseries))
-    avlValues   = p.Results.resistors;  % copy values
+    avlValues   = p.Results.resistanceRange;  % copy values
 else
-    if (length(p.Results.resistors) > 2)                % check parameters
+    if (length(p.Results.resistanceRange) > 2)                % check parameters
         error('Use [MinVal MaxVal] in Eseries mode');   % generate user message
     end
 
     % some preparations
-    [s expRmin]     = strread(strrep(sprintf('%E',p.Results.resistors(1)),'E','#'),'%f#%f');    % extract exponents
-    [s expRmax]     = strread(strrep(sprintf('%E',p.Results.resistors(2)),'E','#'),'%f#%f');
+    [s expRmin]     = strread(strrep(sprintf('%E',p.Results.resistanceRange(1)),'E','#'),'%f#%f');  % extract exponents
+    [s expRmax]     = strread(strrep(sprintf('%E',p.Results.resistanceRange(2)),'E','#'),'%f#%f');
 
     % build decade series
     avlValues = [];
@@ -103,11 +103,11 @@ end;
 
 % build permutation table
 %
-permTable(1:p.Results.subsCnt) = 1;                                                                                     % init permutation table
-for (i=1:length(avlValues)^p.Results.subsCnt-1)                                                                         % loop runs until full permutation is created                      
-    permTable(end+1,1:p.Results.subsCnt) = [permTable(end,1:p.Results.subsCnt-1) permTable(end,p.Results.subsCnt)+1];   % increment last index in table
-    for i=p.Results.subsCnt:-1:2
-        if(permTable(end,i) > length(avlValues))                                                                        % digit overflow
+permTable(1:p.Results.numSubstitutionResistors) = 1;                                                                                                                        % init permutation table
+for (i=1:length(avlValues)^p.Results.numSubstitutionResistors-1)                                                                                                            % loop runs until full permutation is created                      
+    permTable(end+1,1:p.Results.numSubstitutionResistors) = [permTable(end,1:p.Results.numSubstitutionResistors-1) permTable(end,p.Results.numSubstitutionResistors)+1];    % increment last index in table
+    for i=p.Results.numSubstitutionResistors:-1:2
+        if(permTable(end,i) > length(avlValues))                                                                                                                            % digit overflow
             permTable(end,i)    = 1;
             permTable(end,i-1)  = permTable(end,i-1)+1;
         end;
