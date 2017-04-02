@@ -20,11 +20,11 @@ function solutions = resistorSubstitution(varargin)
 %%  Usage
 %%  =====
 %%
-%%  value:                      double                      -> resistor value to replace;
-%%  tolerance:                  double          [ 1% ]      -> residualer relative deviation (tolerance = dR/R);
-%%  eseries:                    string          [ E24 ]     -> used E series for searching;
-%%  resistanceRange:            double array    [ 1 10e6 ]  -> collection of resistors or min/max value for eseries;
-%%  numSubstitutionResistors:   integer         [ 2 ]       -> maximum number of resistors for substitution;     
+%%  value:                      double                          -> resistor value to replace;
+%%  eseries:                    string          [ E24 ]         -> used E series for searching;
+%%  numSubstitutionResistors:   integer         [ 2 ]           -> maximum number of resistors for substitution; 
+%%  resistanceRange:            double array    [ 1 10e6 ]      -> collection of resistors or min/max value for eseries;
+%%  topology                    string          [ parallel ]    -> resistor substituion topology    
 %%
 
 
@@ -39,10 +39,11 @@ p.FunctionName  = 'resistorSubstitution';   % set function name
 p.addRequired('value', @isnumeric);             % mandatory argument
 
 p.addOptional('eseries', 'E24', @(x) any (strcmp (x, {'E3', 'E6', 'E12', 'E24', 'E48', 'E96', 'None'})));   % Info: https://de.wikipedia.org/wiki/E-Reihe
+p.addOptional('numSubstitutionResistors', 2, @isnumeric);                                                   % allowed number of resistors for substituion
 p.addOptional('resistanceRange', [1 10e6], @isvector);                                                      % Min/max of resistor for E-Series generation, or collection of resistors
-p.addOptional('numSubstitutionResistors', 2, @isnumeric);                                                                    % allowed number of resistors for substituion
+p.addOptional('topology', 'parallel', @(x) any (strcmp (x, {'parallel', 'serial', 'mixed'})));              % subsitution topology, parallel only at the moment
 p.addOptional('numSolution', 7, @isnumeric);                                                                % maximum number of solutions
-p.addSwitch('brief');                                                                                     	% if set console output is disabled
+p.addSwitch('brief');                                                                                       % if set console output is disabled
 
 p.parse(varargin{:});   % Run created parser on inputs
 %
@@ -76,6 +77,14 @@ ser.E96 =   [   1.00 1.02 1.05 1.07 1.10 1.13 1.15 1.18 1.21 1.24 1.27 1.30 ...
 %
 
 
+
+% Start Processing Time measurement
+%
+tic;
+%
+
+
+
 % build available resistor table
 %
 if (strcmp('None', p.Results.eseries))
@@ -96,6 +105,17 @@ else
             avlValues(end+1) = ser.(p.Results.eseries)(j)*10^i;
         end;
     end;
+end;
+%
+
+
+
+% Reduce available resistors based on substitution mode to reduce solution space
+%
+if (strcmp('parallel', p.Results.topology))
+    minResiError    = p.Results.value*1000;                                             % 1 promile is minimal residual error
+    avlValIdx       = find(avlValues >= p.Results.value & avlValues <= minResiError);   % find values
+    avlValues       = avlValues(avlValIdx);
 end;
 %
 
@@ -141,35 +161,36 @@ permTable(rmvIdx,:) = [];
 %
 solutions   = struct([]);                                               % create structure array
 for i=1:length(permTable)
-	% build new element
-	act.Rused   = avlValues(permTable(i,:));                            % store used resistor values
-	act.Rsub    = 1/sum([1./avlValues(permTable(i,:))]);                % Rges = 1 / (1/R1 + 1/R2 + 1/Rn + ...)
-	act.Err     = abs((act.Rsub - p.Results.value))/p.Results.value;    % calculate relative mismatch
-	
-	% insert in known substitution list
-	if (length(solutions) == 0)                             % check for beginning of new list
-		solutions(1)    = act;                              % store first structure element in list
-	else                                                    % apply insert sort
-		for n=1:length(solutions)
-			if(solutions(n).Err > act.Err)                  % check error and insert of element error is larger then actual elemment
-				solutions(n+1:end+1)    = solutions(n:end); % shift all elements to next position
-				solutions(n)            = act;              % insert new element
-				break;
-			end;
-		end;
-	end;
-	
-	% if longer then desired, cut off
-	solutions(p.Results.numSolution+1:end)  = [];   % discard all not needed elements
+    % build new element
+    act.Rused   = avlValues(permTable(i,:));                            % store used resistor values
+    act.Rsub    = 1/sum([1./avlValues(permTable(i,:))]);                % Rges = 1 / (1/R1 + 1/R2 + 1/Rn + ...)
+    act.Err     = abs((act.Rsub - p.Results.value))/p.Results.value;    % calculate relative mismatch
+    
+    % insert in known substitution list
+    if (length(solutions) == 0)                             % check for beginning of new list
+        solutions(1)    = act;                              % store first structure element in list
+    else                                                    % apply insert sort
+        for n=1:length(solutions)
+            if(solutions(n).Err > act.Err)                  % check error and insert of element error is larger then actual elemment
+                solutions(n+1:end+1)    = solutions(n:end); % shift all elements to next position
+                solutions(n)            = act;              % insert new element
+                break;
+            end;
+        end;
+    end;
+    
+    % if longer then desired, cut off
+    solutions(p.Results.numSolution+1:end)  = [];   % discard all not needed elements
 end;
 %
 
 
-%permTable
+
+% User Output
+%
+if (p.Results.brief == false)
+	toc;                        % print measured time to console
 
 
-
-
-
-
-
+end;
+%
