@@ -21,6 +21,7 @@ function solutions = resistorSubstitution(varargin)
 %%  =====
 %%
 %%  value:                      double                          -> resistor value to replace;
+%%  relSubstitutionError:       double          [ 0 ]           -> relative error due resistor value substitution; zero means full search
 %%  eseries:                    string          [ E24 ]         -> used E series for searching;
 %%  numSubstitutionResistors:   integer         [ 2 ]           -> maximum number of resistors for substitution; 
 %%  resistanceRange:            double array    [ 1 10e6 ]      -> collection of resistors or min/max value for eseries;
@@ -36,8 +37,9 @@ function solutions = resistorSubstitution(varargin)
 p               = inputParser();            % create object
 p.FunctionName  = 'resistorSubstitution';   % set function name
 
-p.addRequired('value', @isnumeric);             % mandatory argument
+p.addRequired('value', @isnumeric);         % mandatory argument
 
+p.addOptional('relSubstitutionError', 0, @isnumeric);                                                       % relative resistor substitution error
 p.addOptional('eseries', 'E24', @(x) any (strcmp (x, {'E3', 'E6', 'E12', 'E24', 'E48', 'E96', 'None'})));   % Info: https://de.wikipedia.org/wiki/E-Reihe
 p.addOptional('numSubstitutionResistors', 2, @isnumeric);                                                   % allowed number of resistors for substituion
 p.addOptional('resistanceRange', [1 10e6], @isvector);                                                      % Min/max of resistor for E-Series generation, or collection of resistors
@@ -115,8 +117,12 @@ end;
 % Reduce available resistors based on substitution mode to reduce solution space
 %
 if (strcmp('parallel', p.Results.topology))
-    minResiError    = p.Results.value*1000;                                             % 1 promile is minimal residual error
-    avlValIdx       = find(avlValues >= p.Results.value & avlValues <= minResiError);   % find values
+    if (p.Results.relSubstitutionError == 0)                                        % reduce number of substitution value based on allowed relativ error
+        maxValue    = Inf;
+    else
+        maxValue    = p.Results.value*(1/p.Results.relSubstitutionError);
+    end;
+    avlValIdx       = find(avlValues >= p.Results.value & avlValues <= maxValue);   % find values
     avlValues       = avlValues(avlValIdx);
 end;
 %
@@ -151,10 +157,10 @@ for i=1:row
         end;
         rmvIdxTemp              = find(ismember(permTable, rmvPerm(2:end,:), 'rows') == 1); % get indexes from all lines who matches with permutations
         permTable(rmvIdxTemp,:) = NaN;                                                      % mark dataset is invalid
-        rmvIdx                  = [rmvIdx rmvIdxTemp];                                      % collect for one-shoot remove
+        rmvIdx                  = [rmvIdx rmvIdxTemp'];                                     % collect for one-shoot remove
     end;
 end;
-permTable(rmvIdx,:) = [];
+permTable(rmvIdx',:) = [];
 %
 
 
@@ -183,6 +189,10 @@ for i=1:length(permTable)
     
     % if longer then desired, cut off
     solutions(p.Results.numSolution+1:end)  = [];   % discard all not needed elements
+    
+    if (act.Err <= p.Results.relSubstitutionError) % leave calculation on first occurance
+        break;
+    end;
 end;
 %
 
