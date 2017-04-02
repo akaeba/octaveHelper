@@ -157,13 +157,11 @@ while(exitLoop == false)
                 solutions(n+1:end+1)                    = solutions(n:end); % shift all elements to next position
                 solutions(n)                            = act;              % insert new element
                 solutions(p.Results.numSolution+1:end)  = [];               % discard all not needed elements
-                break;
+                if (act.Err <= p.Results.relSubstitutionError)              % check if actual combination meets requirements
+                    exitLoop = true;                                        % leave while loop
+                end;
+				break;                                                      % after insertion leave loop
             end;
-        end;
-        
-        % check if actual combination meets requirements
-        if (act.Err <= p.Results.relSubstitutionError)                      % leave calculation on first occurance
-            break;
         end;
     end;
     
@@ -190,11 +188,9 @@ end;
 % User Output
 %
 if (p.Results.brief == false)
-    toc;                                                                                                            % print measured time to console
+    toc;                                                                                                                % print measured time to console
     if (solutions(1).Err > p.Results.relSubstitutionError)
-        warning(sprintf('%s%0.2e%s', 'Relative Resistor Substitution Error with ', solutions(1).Err, ' not met'));  % warning of not meeting of relative error constraint
+        warning(sprintf('%s%0.2e%s', 'Relative Resistor Substitution Error with |', solutions(1).Err, '| not met'));    % warning of not meeting of relative error constraint
     end;
-
-
 end;
 %
