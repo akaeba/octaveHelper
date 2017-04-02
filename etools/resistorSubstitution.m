@@ -80,7 +80,9 @@ ser.E96 =   [   1.00 1.02 1.05 1.07 1.10 1.13 1.15 1.18 1.21 1.24 1.27 1.30 ...
 
 % Start Processing Time measurement
 %
-tic;
+if (p.Results.brief == false)
+	tic;
+end;
 %
 
 
