@@ -114,6 +114,20 @@ end;
 
 
 
+% Check if resistor value is in standard series located
+%
+if (length(find(avlValues == p.Results.value)) > 0)
+    act.Rused       = p.Results.value;
+    act.Rsub        = p.Results.value;
+    act.Err         = 0;
+    solutions(1)    = act;
+    toc;
+    return;
+end;
+%
+
+
+
 % Reduce available resistors based on substitution mode to reduce solution space
 %
 if (strcmp('parallel', p.Results.topology))
@@ -160,7 +174,7 @@ while(exitLoop == false)
                 if (act.Err <= p.Results.relSubstitutionError)              % check if actual combination meets requirements
                     exitLoop = true;                                        % leave while loop
                 end;
-				break;                                                      % after insertion leave loop
+                break;                                                      % after insertion leave loop
             end;
         end;
     end;
