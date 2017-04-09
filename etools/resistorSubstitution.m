@@ -233,7 +233,7 @@ for i=1:length(solutions)
     printBuffer(i,1) = cstrcat(printBuffer{i,1}, resistorSubs_num2sci(solutions(i).Rused(end), 2), ' )');
     % prepare absoulte value and relative error
     printBuffer(i,2)    = resistorSubs_num2sci(solutions(i).Rsub, 2);
-    printBuffer(i,3)    = resistorSubs_num2sci(((solutions(i).Rsub-p.Results.value)/p.Results.value)*100, 0);
+    printBuffer(i,3)    = strcat(resistorSubs_num2sci(((solutions(i).Rsub-p.Results.value)/p.Results.value)*100, 0), '%');
 end;
 %
 
@@ -257,12 +257,21 @@ end;
 %
 function str = resistorSubs_num2sci(num, nonZeroFrac)
 %%
-    unitPrefix  = ['yzafpnum kMGTPEZY'];                                                            % SI-unit prefixes: https://en.wikipedia.org/wiki/Unit_prefix https://de.wikipedia.org/wiki/Vorsätze_für_Maßeinheiten
-    [s e]   = strread(strrep(sprintf('%E',num),'E','#'),'%f#%f');                                   % extract exponent
-    preIdx  = floor(max(min(e, 24), -24)/3);                                                        % apply fence for si prefixes; every three decades new unit prefix 
-    remain  = floor(10^nonZeroFrac*(num/(10^(3*preIdx))-floor(num/(10^(3*preIdx)))));               % caclulate reamining numbers; SRC: https://de.mathworks.com/matlabcentral/answers/151605-grabbing-number-after-decimal
-    [s dig] = strread(strrep(sprintf('%E',remain),'E','#'),'%f#%f');                                % calc number of digits                 
-    str     = sprintf('%.*f%s', dig, num/(10^(3*preIdx)), strrep(unitPrefix(preIdx+9), ' ', ''));   % build relaeasing string, with variable number of digits after decimal
+    unitPrefix  = ['yzafpnum kMGTPEZY'];                                            % SI-unit prefixes: https://en.wikipedia.org/wiki/Unit_prefix https://de.wikipedia.org/wiki/Vorsätze_für_Maßeinheiten
+    [s e]       = strread(strrep(sprintf('%E',num),'E','#'),'%f#%f');               % extract exponent
+    preIdx      = floor(max(min(e, 24), -24)/3);                                    % apply fence for si prefixes; every three decades new unit prefix 
+    dig         = 0;
+    if (nonZeroFrac != 0)                                                           % if zero frac required skip
+        digStr  = strsplit(sprintf('%.*f', nonZeroFrac, num/(10^(3*preIdx))), '.'); % build float with defined digits after decimal; split at '.';
+        digStr  = digStr{end};                                                      % get digits
+        for i=length(digStr):-1:1                                                   % look from trailing end forward of digits equal zero
+            if (digStr(i) != '0')
+                dig = i;
+                break;
+            end;
+        end;
+    end;    
+    str = sprintf('%.*f%s', dig, num/(10^(3*preIdx)), strrep(unitPrefix(preIdx+9), ' ', ''));   % build relaeasing string, with variable number of digits after decimal
 end;
 %
 %-------------------------------------------------------------------------
