@@ -15,6 +15,8 @@
 
 
 
+%-------------------------------------------------------------------------
+%
 function solutions = resistorSubstitution(varargin)
 %%
 %%  Usage
@@ -44,11 +46,12 @@ p.addOptional('eseries', 'E24', @(x) any (strcmp (x, {'E3', 'E6', 'E12', 'E24', 
 p.addOptional('numSubstitutionResistors', 2, @isnumeric);                                                   % allowed number of resistors for substituion
 p.addOptional('resistanceRange', [1 10e6], @isvector);                                                      % Min/max of resistor for E-Series generation, or collection of resistors
 p.addOptional('topology', 'parallel', @(x) any (strcmp (x, {'parallel', 'serial', 'mixed'})));              % subsitution topology, parallel only at the moment
-p.addOptional('numSolution', 7, @isnumeric);                                                                % maximum number of solutions
+p.addOptional('numSolution', 3, @isnumeric);                                                                % maximum number of solutions
 p.addSwitch('brief');                                                                                       % if set console output is disabled
 
 p.parse(varargin{:});   % Run created parser on inputs
 %
+
 
 
 % E3 to E96 Tables
@@ -121,8 +124,13 @@ if (length(find(avlValues == p.Results.value)) > 0)
     act.Rsub        = p.Results.value;
     act.Err         = 0;
     solutions(1)    = act;
-    toc;
-    return;
+    skipSearch      = true;                 % skip solution searching loop
+else
+    act.Rused       = [Inf];                % fill with dummy data to avoid check for first element in loop
+    act.Rsub        = [Inf];                % 
+    act.Err         = 1;                    %
+    solutions       = act;                  % create structure array    
+    skipSearch      = false;                % start solution searching loop
 end;
 %
 
@@ -130,7 +138,7 @@ end;
 
 % Reduce available resistors based on substitution mode to reduce solution space
 %
-if (strcmp('parallel', p.Results.topology))
+if ((skipSearch == false) && (strcmp('parallel', p.Results.topology)))
     if (p.Results.relSubstitutionError == 0)                                        % reduce number of substitution value based on allowed relativ error
         maxValue    = Inf;
     else
@@ -145,15 +153,10 @@ end;
 
 % calculate resistor permutations
 %
-act.Rused                                       = [Inf];                                                % fill with dummy data to avoid check for first element in loop
-act.Rsub                                        = [Inf];                                                % 
-act.Err                                         = 1;                                                    %
-solutions                                       = act;                                                  % create structure array
 varies(1:p.Results.numSubstitutionResistors)    = 1;                                                    % init Array
 calced                                          = [];                                                   % collection of tryed permutations
 maxLoopIteration                                = length(avlValues)^p.Results.numSubstitutionResistors; % maximum number of loop iteration for full decicion tree calculation
-exitLoop                                        = false;
-while(exitLoop == false)
+while(skipSearch == false)
     % calculate notryed resistor combination
     if(sum(ismember(calced, varies(end,:), 'rows')) == 0)                   % check if actual permutation was once again tryed
         % build permutation from actual veriations
@@ -172,7 +175,7 @@ while(exitLoop == false)
                 solutions(n)                            = act;              % insert new element
                 solutions(p.Results.numSolution+1:end)  = [];               % discard all not needed elements
                 if (act.Err <= p.Results.relSubstitutionError)              % check if actual combination meets requirements
-                    exitLoop = true;                                        % leave while loop
+                    skipSearch = true;                                        % leave while loop
                 end;
                 break;                                                      % after insertion leave loop
             end;
@@ -192,19 +195,74 @@ while(exitLoop == false)
     [rowCalced colCalced]   = size(calced);     % get size of caclulated table
     [rowVaries colVaries]   = size(varies);     %
     if (rowCalced >= maxLoopIteration || rowVaries >= maxLoopIteration)
-        exitLoop = true;
+        skipSearch = true;
     end;
 end;
 %
 
 
 
-% User Output
+% Function finished in case of brief output
 %
-if (p.Results.brief == false)
-    toc;                                                                                                                % print measured time to console
-    if (solutions(1).Err > p.Results.relSubstitutionError)
-        warning(sprintf('%s%0.2e%s', 'Relative Resistor Substitution Error with |', solutions(1).Err, '| not met'));    % warning of not meeting of relative error constraint
-    end;
+if (p.Results.brief == true)
+    return;
 end;
 %
+
+
+
+% Warning of non reaching error requirement
+%
+toc;                                                                                                                % print measured time to console
+if (solutions(1).Err > p.Results.relSubstitutionError)
+    warning(sprintf('%s%0.2e%s', 'Relative Resistor Substitution Error with |', solutions(1).Err, '| not met'));    % warning of not meeting of relative error constraint
+end;
+%
+
+
+
+% Convert Resulst to string table for CLI output
+%
+printBuffer = {};
+for i=1:length(solutions)
+    % prepare resistor substituion for table output
+    printBuffer(i,1) = {'( '};
+    for n=1:length(solutions(i).Rused)-1 
+        printBuffer(i,1) = cstrcat(printBuffer{i,1}, resistorSubs_num2sci(solutions(i).Rused(n), 2), ' || ');
+    end;
+    printBuffer(i,1) = cstrcat(printBuffer{i,1}, resistorSubs_num2sci(solutions(i).Rused(end), 2), ' )');
+    % prepare absoulte value and relative error
+    printBuffer(i,2)    = resistorSubs_num2sci(solutions(i).Rsub, 2);
+    printBuffer(i,3)    = resistorSubs_num2sci(((solutions(i).Rsub-p.Results.value)/p.Results.value)*100, 0);
+end;
+%
+
+
+
+
+printBuffer
+
+
+
+
+end;
+%
+%-------------------------------------------------------------------------
+
+
+
+
+%-------------------------------------------------------------------------
+% Help Function for SI-Number conversion
+%
+function str = resistorSubs_num2sci(num, nonZeroFrac)
+%%
+    unitPrefix  = ['yzafpnum kMGTPEZY'];                                                            % SI-unit prefixes: https://en.wikipedia.org/wiki/Unit_prefix https://de.wikipedia.org/wiki/Vorsätze_für_Maßeinheiten
+    [s e]   = strread(strrep(sprintf('%E',num),'E','#'),'%f#%f');                                   % extract exponent
+    preIdx  = floor(max(min(e, 24), -24)/3);                                                        % apply fence for si prefixes; every three decades new unit prefix 
+    remain  = floor(10^nonZeroFrac*(num/(10^(3*preIdx))-floor(num/(10^(3*preIdx)))));               % caclulate reamining numbers; SRC: https://de.mathworks.com/matlabcentral/answers/151605-grabbing-number-after-decimal
+    [s dig] = strread(strrep(sprintf('%E',remain),'E','#'),'%f#%f');                                % calc number of digits                 
+    str     = sprintf('%.*f%s', dig, num/(10^(3*preIdx)), strrep(unitPrefix(preIdx+9), ' ', ''));   % build relaeasing string, with variable number of digits after decimal
+end;
+%
+%-------------------------------------------------------------------------
