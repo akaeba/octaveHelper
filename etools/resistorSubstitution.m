@@ -223,27 +223,42 @@ end;
 
 % Convert Resulst to string table for CLI output
 %
-printBuffer = {};
+printBuffer{1,1} = 'Resistors';  % build table header
+printBuffer{1,2} = 'Rval';
+printBuffer{1,3} = 'Error';
 for i=1:length(solutions)
     % prepare resistor substituion for table output
-    printBuffer(i,1) = {'( '};
+    printBuffer(i+1,1) = {'( '};
     for n=1:length(solutions(i).Rused)-1 
-        printBuffer(i,1) = cstrcat(printBuffer{i,1}, resistorSubs_num2sci(solutions(i).Rused(n), 2), ' || ');
+        printBuffer(i+1,1) = cstrcat(printBuffer{i+1,1}, resistorSubs_num2sci(solutions(i).Rused(n), 2), ' || ');
     end;
-    printBuffer(i,1) = cstrcat(printBuffer{i,1}, resistorSubs_num2sci(solutions(i).Rused(end), 2), ' )');
+    printBuffer(i+1,1)  = cstrcat(printBuffer{i+1,1}, resistorSubs_num2sci(solutions(i).Rused(end), 2), ' )');
     % prepare absoulte value and relative error
-    printBuffer(i,2)    = resistorSubs_num2sci(solutions(i).Rsub, 2);
-    printBuffer(i,3)    = strcat(resistorSubs_num2sci(((solutions(i).Rsub-p.Results.value)/p.Results.value)*100, 0), '%');
+    printBuffer(i+1,2)  = resistorSubs_num2sci(solutions(i).Rsub, 2);
+    printBuffer(i+1,3)  = strcat(resistorSubs_num2sci(((solutions(i).Rsub-p.Results.value)/p.Results.value)*100, 0), '%');
 end;
 %
 
 
-
-
-printBuffer
-
-
-
+% Print table
+%
+disp('');
+numChar(1)  = max(cellfun('length', printBuffer(:,1)));         % get length of substitution resistor array
+numChar(2)  = max(cellfun('length', printBuffer(:,2)));
+numChar(3)  = max(cellfun('length', printBuffer(:,3)));
+[row col]   = size(printBuffer);
+for i=1:row
+    temp                    = printBuffer{i,1};
+    temp(end+1:numChar(1))  = ' ';
+    printBuffer{i,1}        = temp;
+    temp                    = printBuffer{i,2};
+    temp(end+1:numChar(2))  = ' ';
+    printBuffer{i,2}        = temp;
+    temp                    = printBuffer{i,3};
+    temp(end+1:numChar(3))  = ' ';
+    printBuffer{i,3}        = temp;
+    disp(cstrcat(printBuffer{i,1}, ' ', printBuffer{i,2}, ' ', printBuffer{i,3}));
+end;
 
 end;
 %
