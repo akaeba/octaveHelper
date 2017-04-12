@@ -112,6 +112,10 @@ else
             avlValues(end+1) = ser.(p.Results.eseries)(j)*10^i;
         end;
     end;
+    
+    % filter to fence
+    avlValues = avlValues(find(avlValues >= p.Results.resistanceRange(1) & avlValues <= p.Results.resistanceRange(2)));
+    
 end;
 %
 
