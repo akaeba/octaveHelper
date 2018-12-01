@@ -19,15 +19,21 @@
 %
 function solutions = resistorSubstitution(varargin)
 %%
-%%  Usage
-%%  =====
+%%  Arguments
+%%  ---------
+%%    value:                      double                        -> resistor value to replace;
+%%    relSubstitutionError:       double          [ 0 ]         -> relative error due resistor value substitution; zero means full search
+%%    eseries:                    string          [ E24 ]       -> used E series for searching;
+%%    numSubstitutionResistors:   integer         [ 2 ]         -> maximum number of resistors for substitution;
+%%    resistanceRange:            double array    [ 1 10e6 ]    -> collection of resistors or min/max value for eseries;
+%%    topology                    string          [ parallel ]  -> resistor substitution topology
 %%
-%%  value:                      double                          -> resistor value to replace;
-%%  relSubstitutionError:       double          [ 0 ]           -> relative error due resistor value substitution; zero means full search
-%%  eseries:                    string          [ E24 ]         -> used E series for searching;
-%%  numSubstitutionResistors:   integer         [ 2 ]           -> maximum number of resistors for substitution; 
-%%  resistanceRange:            double array    [ 1 10e6 ]      -> collection of resistors or min/max value for eseries;
-%%  topology                    string          [ parallel ]    -> resistor substituion topology    
+%%  Example Call
+%%  ------------
+%%    >> resistorSubstitution(45, 'eseries', 'E6', 'relSubstitutionError', 1e-3, 'numSubstitutionResistors', 4)
+%%
+%%    Resistors                     Rval  Error
+%%    ( 47 || 1.5k || 4.7k || 15k ) 45    -2m%
 %%
 
 
@@ -41,12 +47,12 @@ p.FunctionName  = 'resistorSubstitution';   % set function name
 
 p.addRequired('value', @isnumeric);         % mandatory argument
 
-p.addOptional('relSubstitutionError', 0, @isnumeric);                                                       % relative resistor substitution error
-p.addOptional('eseries', 'E24', @(x) any (strcmp (x, {'E3', 'E6', 'E12', 'E24', 'E48', 'E96', 'None'})));   % Info: https://de.wikipedia.org/wiki/E-Reihe
-p.addOptional('numSubstitutionResistors', 2, @isnumeric);                                                   % allowed number of resistors for substituion
-p.addOptional('resistanceRange', [1 10e6], @isvector);                                                      % Min/max of resistor for E-Series generation, or collection of resistors
-p.addOptional('topology', 'parallel', @(x) any (strcmp (x, {'parallel', 'serial', 'mixed'})));              % subsitution topology, parallel only at the moment
-p.addOptional('numSolution', 3, @isnumeric);                                                                % maximum number of solutions
+p.addParameter('relSubstitutionError', 0, @isnumeric);                                                      % relative resistor substitution error
+p.addParameter('eseries', 'E24', @(x) any (strcmp (x, {'E3', 'E6', 'E12', 'E24', 'E48', 'E96', 'None'})));  % Info: https://de.wikipedia.org/wiki/E-Reihe
+p.addParameter('numSubstitutionResistors', 2, @isnumeric);                                                  % allowed number of resistors for substitution
+p.addParameter('resistanceRange', [1 10e6], @isvector);                                                     % Min/max of resistor for E-Series generation, or collection of resistors
+p.addParameter('topology', 'parallel', @(x) any (strcmp (x, {'parallel', 'serial', 'mixed'})));             % substitution topology, parallel only at the moment
+p.addParameter('numSolution', 3, @isnumeric);                                                               % maximum number of solutions
 p.addSwitch('brief');                                                                                       % if set console output is disabled
 
 p.parse(varargin{:});   % Run created parser on inputs
@@ -112,10 +118,10 @@ else
             avlValues(end+1) = ser.(p.Results.eseries)(j)*10^i;
         end;
     end;
-    
+
     % filter to fence
     avlValues = avlValues(find(avlValues >= p.Results.resistanceRange(1) & avlValues <= p.Results.resistanceRange(2)));
-    
+
 end;
 %
 
@@ -131,9 +137,9 @@ if (length(find(avlValues == p.Results.value)) > 0)
     skipSearch      = true;                 % skip solution searching loop
 else
     act.Rused       = [Inf];                % fill with dummy data to avoid check for first element in loop
-    act.Rsub        = [Inf];                % 
+    act.Rsub        = [Inf];                %
     act.Err         = 1;                    %
-    solutions       = act;                  % create structure array    
+    solutions       = act;                  % create structure array
     skipSearch      = false;                % start solution searching loop
 end;
 %
@@ -166,13 +172,13 @@ while(skipSearch == false)
         % build permutation from actual veriations
         actCalced   = unique(perms(varies(end,:)), 'rows');                 % in parallel mode makes no difference to calc R1||R2 or R2||R1
         calced      = vertcat(calced, actCalced);                           % save varied values
-    
+
         % calculate actual resistor combination
         act.Rused   = avlValues(varies(end,:));                             % store used resistor values
         act.Rsub    = 1/sum([1./avlValues(varies(end,:))]);                 % Rges = 1 / (1/R1 + 1/R2 + 1/Rn + ...)
         act.Err     = abs((act.Rsub - p.Results.value))/p.Results.value;    % calculate relative mismatch
-        
-        % inject element in solution table  
+
+        % inject element in solution table
         for n=1:length(solutions)
             if(solutions(n).Err > act.Err)                                  % check error and insert of element error is larger then actual elemment
                 solutions(n+1:end+1)                    = solutions(n:end); % shift all elements to next position
@@ -185,7 +191,7 @@ while(skipSearch == false)
             end;
         end;
     end;
-    
+
     % build new resistor combination
     varies(end+1,1:p.Results.numSubstitutionResistors) = [varies(end,1:p.Results.numSubstitutionResistors-1) varies(end,p.Results.numSubstitutionResistors)+1]; % increment last index in table
     for n=p.Results.numSubstitutionResistors:-1:2                                                                                                               % downto 2, cause left value index needs no overflow, then we are finished
@@ -194,7 +200,7 @@ while(skipSearch == false)
             varies(end,n-1) = varies(end,n-1)+1;
         end;
     end;
-        
+
     % check for next iteration
     [rowCalced colCalced]   = size(calced);     % get size of caclulated table
     [rowVaries colVaries]   = size(varies);     %
@@ -233,7 +239,7 @@ printBuffer{1,3} = 'Error';
 for i=1:length(solutions)
     % prepare resistor substituion for table output
     printBuffer(i+1,1) = {'( '};
-    for n=1:length(solutions(i).Rused)-1 
+    for n=1:length(solutions(i).Rused)-1
         printBuffer(i+1,1) = cstrcat(printBuffer{i+1,1}, resistorSubs_num2sci(solutions(i).Rused(n), 2), ' || ');
     end;
     printBuffer(i+1,1)  = cstrcat(printBuffer{i+1,1}, resistorSubs_num2sci(solutions(i).Rused(end), 2), ' )');
@@ -278,7 +284,7 @@ function str = resistorSubs_num2sci(num, nonZeroFrac)
 %%
     unitPrefix  = ['yzafpnum kMGTPEZY'];                                            % SI-unit prefixes: https://en.wikipedia.org/wiki/Unit_prefix https://de.wikipedia.org/wiki/Vorsätze_für_Maßeinheiten
     [s e]       = strread(strrep(sprintf('%E',num),'E','#'),'%f#%f');               % extract exponent
-    preIdx      = floor(max(min(e, 24), -24)/3);                                    % apply fence for si prefixes; every three decades new unit prefix 
+    preIdx      = floor(max(min(e, 24), -24)/3);                                    % apply fence for si prefixes; every three decades new unit prefix
     dig         = 0;
     if (nonZeroFrac != 0)                                                           % if zero frac required skip
         digStr  = strsplit(sprintf('%.*f', nonZeroFrac, num/(10^(3*preIdx))), '.'); % build float with defined digits after decimal; split at '.';
@@ -289,7 +295,7 @@ function str = resistorSubs_num2sci(num, nonZeroFrac)
                 break;
             end;
         end;
-    end;    
+    end;
     str = sprintf('%.*f%s', dig, num/(10^(3*preIdx)), strrep(unitPrefix(preIdx+9), ' ', ''));   % build relaeasing string, with variable number of digits after decimal
 end;
 %
