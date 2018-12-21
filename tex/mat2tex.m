@@ -98,13 +98,24 @@ end;
 %
 
 
+% Extract Data Size
+%
+[ dataRow, dataCol ] = size(myWorkTabContent);
+%
+
+
 % Tex Gen Preparations
 %
 % create tex code variable
 tex = {};
 % single/double header line
 if ( strcmp('doubleLine',  p.Results.texHeadSeparation) )
-    texHeadLineSeparator = '\hline\hline';
+    if ( p.Results.longtable == true )
+        temp(1:dataCol) = '=';
+        texHeadLineSeparator = strcat('\hhline{', temp, '}');
+    else
+        texHeadLineSeparator = '\hline\hline';
+    end
 elseif ( strcmp('singleLine',  p.Results.texHeadSeparation) )
     texHeadLineSeparator = '\hline';
 else
@@ -120,7 +131,6 @@ if ( strcmp('full',  p.Results.texLevel) )
     % todo
 end
 %
-
 
 
 % check header, type and dimension of table
@@ -143,13 +153,74 @@ end
 %
 
 
-% build table header
+
+% Build Table Header
+%
+if ( length(p.Results.headerText) > 0 )
+    tempElem = '';
+    tempLine = '';
+    for i=1:length(p.Results.headerText)
+        tempElem                        = p.Results.headerText{i};                  % copy string
+        tempElem(end+1:maxFieldLen(i))  = ' ';                                      % fill with blanks
+        tempLine                        = cstrcat(tempLine, tempElem, ' & ');       % append and prepare for next col
+    end
+    tableHeader = cstrcat('    ', tempLine(1:end-2), '  \\', texHeadLineSeparator); % remove last &, new line, header/data separation
+end
+%
+
+
+% Build Table Content
+%
+tableContent = {};
+for i=1:dataRow
+    tempElem = '';
+    tempLine = '';
+    for j=1:dataCol
+        tempElem                        = myWorkTabContent{i,j};                % copy element
+        tempElem(end+1:maxFieldLen(j))  = ' ';                                  % blank padding
+        tempLine                        = cstrcat(tempLine, tempElem, ' & ');   % append and prepare for next col
+    end
+    tableContent{end+1} = cstrcat('    ', tempLine(1:end-2), '  \\\hline');  % finish table row
+end
+%
+
+
+% build table
 %
 if ( p.Results.longtable == true )
-    % todo: long table header
-
-
-
+    % long table
+        % build table
+    tex{end+1} = '\begin{longtable}{|';
+    for i=1:dataCol
+        tex{end} = strcat(tex{end}, 'c|');
+    end
+    tex{end} = strcat(tex{end}, '}');
+        % Caption & lable
+    tex{end+1} = '  \caption[Todo, TOC entry]{Todo, Table Description}';
+    tex{end+1} = '  \label{tab:part:chapter:section:tablegen}';
+        % Table Header Content
+    tex{end+1} = '  % Definition Table Header on first page';
+    tex{end+1} = '  \\\hline';
+    tex{end+1} = tableHeader;       % append first header
+    tex{end+1} = '  \endfirsthead';
+    tex{end+1} = '  % Definition table header on following pages';
+    tex{end+1} = '  \hline';
+    tex{end+1} = tableHeader;       % append all other headers
+    tex{end+1} = '  \endhead';
+        % Table Footer Content
+    tex{end+1} = '  % Footer ot all intermediate pages';
+    tex{end+1} = cstrcat('  \multicolumn{', num2str(dataCol), '}{|r|}{go on next page}            \\\hline');
+    tex{end+1} = '  \endfoot';
+    tex{end+1} = '  % Footer on last page';
+    tex{end+1} = cstrcat('  \multicolumn{', num2str(dataCol), '}{|r|}{{-}{-}{=}{=} end of table}  \\\hline');
+    tex{end+1} = '  \endlastfoot';
+        % Table content
+    tex{end+1} = '  % Table content';
+    tex{end+1} = cstrcat('  % ', strtrim(tableHeader(1:strfind(tableHeader, '\')(1)-1)));
+    tex(end+1:end+length(tableContent)) = tableContent;
+        % End of Table
+    tex{end+1} = '';
+    tex{end+1} = '  \end{longtable}';
 
 else
     % short table
@@ -158,38 +229,20 @@ else
     tex{end+1} = '  \centering \capstart';
     tex{end+1} = '  \begin{tabular}{|';
         % number of cols
-    [ dataRow, dataCol ] = size(myWorkTabContent);
     for i=1:dataCol
         tex{end} = strcat(tex{end}, 'c|');
     end
     tex{end} = strcat(tex{end}, '}  \hline');
         % table header
-    if ( length(p.Results.headerText) > 0 )
-        tempElem = '';
-        tempLine = '';
-        for i=1:length(p.Results.headerText)
-            tempElem                        = p.Results.headerText{i};              % copy string
-            tempElem(end+1:maxFieldLen(i))  = ' ';                                  % fill with blanks
-            tempLine                        = cstrcat(tempLine, tempElem, ' & ');   % append and prepare for next col
-        end
-        tex{end+1} = cstrcat('    ', tempLine(1:end-2), '  \\', texHeadLineSeparator);  % remove last &, new line and separator
-    end
+    tex{end+1} = tableHeader;   % append header
         % table content
-    for i=1:dataRow
-        tempElem = '';
-        tempLine = '';
-        for j=1:dataCol
-            tempElem                        = myWorkTabContent{i,j};                % copy element
-            tempElem(end+1:maxFieldLen(j))  = ' ';                                  % blank padding
-            tempLine                        = cstrcat(tempLine, tempElem, ' & ');   % append and prepare for next col
-        end
-        tex{end+1} = cstrcat('    ', tempLine(1:end-2), '  \\\hline');  % finish table row
-    end
+    tex(end+1:end+length(tableContent)) = tableContent;
         % table footer
     tex{end+1} = '  \end{tabular}';
     tex{end+1} = '  \caption[Todo, TOC entry]{Todo, Table Description}';
     tex{end+1} = '  \label{tab:part:chapter:section:tablegen}';
     tex{end+1} = '\end{table}';
+
 end
 
 
