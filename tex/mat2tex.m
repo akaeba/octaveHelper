@@ -220,7 +220,7 @@ if ( p.Results.longtable == true )
     tex(end+1:end+length(tableContent)) = tableContent;
         % End of Table
     tex{end+1} = '';
-    tex{end+1} = '  \end{longtable}';
+    tex{end+1} = '\end{longtable}';
 
 else
     % short table
