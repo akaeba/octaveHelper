@@ -33,7 +33,7 @@ function tex = mat2tex(myData, varargin)
 %%
 %%  Example Call
 %%  ------------
-%%    >> mat2tex([1 50 5; 45 789 -0.1], 'headerText', {'foo1', 'foo2', 'foo3'})
+%%    >> mat2tex([1 50 5; 45 789 -0.1], 'headerText', {'foo1', 'foo2', 'foo3'}, 'texLevel', 'full')
 %%
 
 
@@ -47,7 +47,7 @@ p.FunctionName  = 'mat2tex';        % set function name
 
 p.addParameter('notation', 'si', @(x) any (strcmp (x, {'scientific', 'number', 'si'})));                    % type conversion if numeric table is provided
 p.addParameter('fraction', 1, @isnumeric);                                                                  % number of fraction in number
-p.addParameter('texLevel', 'table', @(x) any (strcmp (x, {'full', 'table', 'content'})));                   % defines level of generated code
+p.addParameter('texLevel', 'table', @(x) any (strcmp (x, {'full', 'table'})));                              % defines level of generated code
 p.addParameter('texHeadSeparation', 'doubleLine', @(x) any (strcmp (x, {'singleLine', 'doubleLine'})));     % defines level of generated code
 p.addParameter('headerText', {}, @iscell);                                                                  % number of fraction in number
 
@@ -128,7 +128,17 @@ end;
 % add header of full document, if requested
 %
 if ( strcmp('full',  p.Results.texLevel) )
-    % todo
+    tex{end+1} = '\documentclass{article}';
+    tex{end+1} = '';
+    tex{end+1} = '\usepackage{longtable}';
+    tex{end+1} = '\usepackage{multirow}';
+    tex{end+1} = '\usepackage{multicol}';
+    tex{end+1} = '\usepackage{units}';
+    tex{end+1} = '\usepackage{hhline}';
+    tex{end+1} = '';
+    tex{end+1} = '\begin{document}';
+    tex{end+1} = '';
+    tex{end+1} = '';
 end
 %
 
@@ -219,7 +229,6 @@ if ( p.Results.longtable == true )
     tex{end+1} = cstrcat('  % ', strtrim(tableHeader(1:strfind(tableHeader, '\')(1)-1)));
     tex(end+1:end+length(tableContent)) = tableContent;
         % End of Table
-    tex{end+1} = '';
     tex{end+1} = '\end{longtable}';
 
 else
@@ -244,6 +253,16 @@ else
     tex{end+1} = '\end{table}';
 
 end
+
+
+% add end of full document, if requested
+%
+if ( strcmp('full',  p.Results.texLevel) )
+    tex{end+1} = '';
+    tex{end+1} = '';
+    tex{end+1} = '\end{document}';
+end
+%
 
 
 end;
