@@ -1,145 +1,175 @@
-%***********************************************************************
-% License           : LGPL v3
+% ************************************************************************
+%  @author:         Andreas Kaeberlein
+%  @copyright:      Copyright 2021
+%  @credits:        AKAE
 %
-% Author            : Andreas Kaeberlein
-% eMail             : andreas.kaeberlein@web.de
+%  @license:        GPLv3
+%  @maintainer:     Andreas Kaeberlein
+%  @email:          andreas.kaeberlein@web.de
 %
-% File              : listFile.m
-% Description       : list files in given directory
+%  @file:           listFile.m
+%  @date:           2016-06-13
 %
-% Sources           : none
+%  @brief:          file selection dialog
 %
-% on                : 2017-02-09
-%************************************************************************
+% ************************************************************************
 
 
 
-function listings = listFile(path, pattern, uiSel, subfolder)
-%%
+function files = listFile(dirPath, varargin)
 %%  Usage
 %%  =====
 %%
-%%  path:           string          -> path to file location
-%%  pattern:        string          -> matching pattern
-%%  uiSel:          boolean         -> user interface selection
-%%  subfolder:      integer         -> numbers of sub folder levels [-1 for inifnity search]
-%%  listings:       string array    -> found files
+%%  Arguments:
+%%  ----------
+%%    dirPath       string      -> path to the file
+%%    name          string      -> file name with extension for files to look for, '*' is wildcard
+%%    subfolder     integer     -> search until subfolder level
+%%    dironly       boolean     -> only dir to file is listed
+%%    uiSel         boolean     -> enable interactive selection
+%%    fullPath      boolean     -> provides full path to file
+%%
+%%  Return:
+%%  -------
+%%    files         cell array  -> paths to files
+%%
 %%
 
 
-% process default params
-switch nargin
-    case 1
-        pattern     = '*';      % matching pattern
-        uiSel       = false;    % disable user selection
-        subfolder   = 0;        % skip all sub folders
-    
-    case 2
-        uiSel       = false;    % disable user selection
-        subfolder   = 0;        % skip all sub folders
-        
-    case 3
-        subfolder   = 0;        % skip all sub folders
+
+% parse input
+% SRC: https://www.gnu.org/software/octave/doc/interpreter/Multiple-Return-Values.html#XREFinputParser
+% SRC: https://de.mathworks.com/help/matlab/ref/inputparser.addoptional.html
+%
+p = inputParser();      % create parser
+
+p.addSwitch('uiSel');                       % user interface file selection enable
+p.addSwitch('dironly');                     % no files, only paths are returned
+p.addSwitch('fullPath');                    % prepend entry point to returned file path
+p.addParameter('name', '*.*', @ischar);     % file name, or part of it
+p.addParameter('subfolder', 0, @isnumeric); % file name, or part of it
+
+p.parse(varargin{:});   % parse inputs
+%
+
+
+
+% drop last path separator if specified
+%
+if ( ('/' == dirPath(end)) || ('\' == dirPath(end)) )
+    dirPath = dirPath(1:end-1);
 end
+%
 
 
-% append '/' if path not ends
-if (path(end) != '/')
-    path(end+1) = '/';
+% search recursive
+%
+files = {};
+files = listFile_recursion( files, dirPath, p.Results.name, p.Results.subfolder );
+%
+
+
+% drop first './' -> artifact from search
+%
+for i=1:length(files)
+    files{i} = files{i}(3:end);
 end
+%
 
 
-% init some variables
-listings        = {};
-discoverGoesOn  = true;
-actSubFoldLevel = 0;
-subPathsOld     = {''};
-
-
-% diretory structure discovering loop
-while (discoverGoesOn == true)
-    
-    % disable discover, enable at first sub dir match
-    discoverGoesOn  = false;
-    subPathsNew     = {};
-    
-    % look for directories in path
-    for i=1:length(subPathsOld)
-        tempList    = dir(strcat(path, subPathsOld{i}, '*'));                               % list complete content
-        % process found elements in subpath
-        for j=1:length(tempList)
-            if (tempList(j).isdir == 1)                                                     % directory found
-                if ((tempList(i).name != '.') || (tempList(i).name != '..'))
-                    discoverGoesOn      = true;
-                    subPathsNew{end+1}  = strcat(subPathsOld{i}, tempList(j).name, '/');    % build subpath
-                end
-            end
-        end
+% propagate paths to files only
+%
+if ( p.Results.dironly )
+    for i=1:length(files)
+        [files{i}, ~, ~] = fileparts(files{i}); % filepath only
     end
-    
-    % look for pattern matching files
-    for i=1:length(subPathsOld)
-        tempList    = dir(strcat(path, subPathsOld{i}, pattern));               % list complete content
-        % process pattern matching files
-        for j=1:length(tempList)
-            if (tempList(j).isdir == 0)
-                listings{end+1} = strcat(subPathsOld{i}, tempList(j).name);     % store filename
-            end
-        end
-    end
-    
-    % check for abort condition
-    if ((subfolder != -1) && (actSubFoldLevel >= subfolder))
-        break;
-    end;    
-    
-    % increment subfolderlevel
-    actSubFoldLevel = actSubFoldLevel + 1;
-
-    % store new list
-    subPathsOld = subPathsNew;
-    
-end
-
-
-% return function if no user selection
-if (~uiSel)
-    return
-end
-
-
-% selection dialog header
-disp('');
-tempLine = cstrcat('Found ', char(39), pattern, char(39), ' matching Files:');
-disp(tempLine);
-tempLine(1:end) = '-';  % underline table head
-disp(tempLine);
-
-
-% list files to select
-printDigits = length(num2str(length(listings)));
-for i=1:length(listings)
-    tempLine = '';
-    tempLine(1:printDigits-length(num2str(i))+1) = ' ';
-    tempLine = cstrcat(tempLine, '[', sprintf('%d', i), ']:   ', listings{i});
-    disp(tempLine);
+    files = unique(files);  % if multiples files are in one directory
 end;
-disp('');
+%
 
 
-% input selection dialog
-userSel = input(sprintf('Please select files to process (f.e. [1])\n'));
-
-
-% if no selection return complete list
-if (length(userSel) == 0)
-    return
+% file selection dialog
+%
+if ( p.Results.uiSel )
+    numDigit = length(num2str(length(files)));                                  % get number of digits
+    uiMsg = sprintf('Found .%s files:', strsplit(p.Results.name, '.'){end});    % prepare output
+    disp(uiMsg);
+    for i=1:length(files)
+        disp(cstrcat('  [', sprintf('%0*d', numDigit, i), ']:  ', files{i}));
+    end
+    disp('');
+    % user input
+    selector = input(sprintf(cstrcat('Select Files, ', char(39), ':', char(39), ' - for all\n')), 's'); % read all as character
+    if ( 0 == length(selector) )
+        files = {};
+    elseif ( 1 == strcmp(selector, ':'))
+    else
+        files = files(str2num(selector));
+    end
 end
+%
 
 
-% check input typ for selection
-if (ischar(userSel))
-    listings = listings(str2num(userSel));
-else
-    listings = listings(userSel);
+% Provide full path
+%
+if ( p.Results.fullPath )
+    if ( 0 < length(files) )
+        files = strcat(dirPath, filesep, files);
+    end
 end
+%
+
+
+end
+%%
+
+
+
+%%
+function files = listFile_recursion( files, curPath, fileName, maxSubDir )
+%%  Usage
+%%  =====
+%%
+%%  Arguments:
+%%  ----------
+%%    files         cell        -> listing of files which meet given specification
+%%    curPath       char        -> current file search path
+%%    fileName      char        -> file name with extension to search for, wildcards ('*') allowed
+%%    maxSubDir     integer     -> sub folder recursion deep
+%%
+%%  Return:
+%%  -------
+%%    files         cell        -> paths to files
+%%
+%%
+
+
+
+% list files in current dir
+%
+listing = dir(cstrcat(curPath, filesep, fileName)); % list complete content
+for i=1:length(listing)
+    if ( 0 == listing(i).isdir )    % file found
+        files{end+1} = cstrcat(curPath, filesep, listing(i).name);
+    end;
+end
+%
+
+
+% list dirs in current dir
+%
+listing = dir(curPath); % list complete content
+for i=1:length(listing)
+    if ( 1 == listing(i).isdir )    % directory found
+        if ( (1 ~= strcmp(listing(i).name, '.')) && (1 ~= strcmp(listing(i).name, '..')) )
+            if ( maxSubDir > length(strfind(curPath, filesep)) )    % go one dir level deeper
+                files = listFile_recursion( files, cstrcat(curPath, filesep, listing(i).name), fileName, maxSubDir );
+            end
+        end
+    end
+end
+%
+
+
+end
+%%
