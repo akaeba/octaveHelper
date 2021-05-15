@@ -65,7 +65,7 @@ end
 % search recursive
 %
 files = {};
-files = listFile_recursion( files, dirPath, p.Results.name, p.Results.subfolder );
+files = listFile_recursion( files, dirPath, p.Results.name, 0, p.Results.subfolder );
 %
 
 
@@ -91,9 +91,8 @@ end;
 % file selection dialog
 %
 if ( p.Results.uiSel )
-    numDigit = length(num2str(length(files)));                                  % get number of digits
-    uiMsg = sprintf('Found .%s files:', strsplit(p.Results.name, '.'){end});    % prepare output
-    disp(uiMsg);
+    numDigit = length(num2str(length(files)));  % get number of digits
+    disp(cstrcat('Found ', char(39), p.Results.name, char(39), ' files:'));
     for i=1:length(files)
         disp(cstrcat('  [', sprintf('%0*d', numDigit, i), ']:  ', files{i}));
     end
@@ -126,7 +125,7 @@ end
 
 
 %%
-function files = listFile_recursion( files, curPath, fileName, maxSubDir )
+function files = listFile_recursion( files, curPath, fileName, curSubDir, maxSubDir )
 %%  Usage
 %%  =====
 %%
@@ -135,7 +134,8 @@ function files = listFile_recursion( files, curPath, fileName, maxSubDir )
 %%    files         cell        -> listing of files which meet given specification
 %%    curPath       char        -> current file search path
 %%    fileName      char        -> file name with extension to search for, wildcards ('*') allowed
-%%    maxSubDir     integer     -> sub folder recursion deep
+%%    curSubDir     integer     -> current sub folder recursion deep
+%%    maxSubDir     integer     -> maximum sub folder recursion deep
 %%
 %%  Return:
 %%  -------
@@ -162,8 +162,8 @@ listing = dir(curPath); % list complete content
 for i=1:length(listing)
     if ( 1 == listing(i).isdir )    % directory found
         if ( (1 ~= strcmp(listing(i).name, '.')) && (1 ~= strcmp(listing(i).name, '..')) )
-            if ( maxSubDir > length(strfind(curPath, filesep)) )    % go one dir level deeper
-                files = listFile_recursion( files, cstrcat(curPath, filesep, listing(i).name), fileName, maxSubDir );
+            if ( maxSubDir > curSubDir )    % go one dir level deeper
+                files = listFile_recursion( files, cstrcat(curPath, filesep, listing(i).name), fileName, curSubDir+1, maxSubDir );
             end
         end
     end
