@@ -54,8 +54,12 @@ p.parse(varargin{:});   % parse inputs
 
 
 
-% drop last path separator if specified
+% Prepare Path
 %
+% allign to OS path separator
+dirPath = strrep(dirPath, '/', filesep);
+dirPath = strrep(dirPath, '\', filesep);
+% drop last path separator if specified
 if ( ('/' == dirPath(end)) || ('\' == dirPath(end)) )
     dirPath = dirPath(1:end-1);
 end
@@ -65,7 +69,7 @@ end
 % search recursive
 %
 files = {};
-files = listFile_recursion( files, dirPath, p.Results.name, 0, p.Results.subfolder );
+files = listFile_recursion( files, dirPath, '.', p.Results.name, 0, p.Results.subfolder );
 %
 
 
@@ -125,7 +129,7 @@ end
 
 
 %%
-function files = listFile_recursion( files, curPath, fileName, curSubDir, maxSubDir )
+function files = listFile_recursion( files, entryPath, curPath, fileName, curSubDir, maxSubDir )
 %%  Usage
 %%  =====
 %%
@@ -147,7 +151,7 @@ function files = listFile_recursion( files, curPath, fileName, curSubDir, maxSub
 
 % list files in current dir
 %
-listing = dir(cstrcat(curPath, filesep, fileName)); % list complete content
+listing = dir(cstrcat(entryPath, filesep, curPath, filesep, fileName)); % list complete content
 for i=1:length(listing)
     if ( 0 == listing(i).isdir )    % file found
         files{end+1} = cstrcat(curPath, filesep, listing(i).name);
@@ -163,7 +167,7 @@ for i=1:length(listing)
     if ( 1 == listing(i).isdir )    % directory found
         if ( (1 ~= strcmp(listing(i).name, '.')) && (1 ~= strcmp(listing(i).name, '..')) )
             if ( maxSubDir > curSubDir )    % go one dir level deeper
-                files = listFile_recursion( files, cstrcat(curPath, filesep, listing(i).name), fileName, curSubDir+1, maxSubDir );
+                files = listFile_recursion( files, entryPath, cstrcat(curPath, filesep, listing(i).name), fileName, curSubDir+1, maxSubDir );
             end
         end
     end
