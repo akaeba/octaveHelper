@@ -60,7 +60,7 @@ p.parse(varargin{:});   % parse inputs
 dirPath = strrep(dirPath, '/', filesep);
 dirPath = strrep(dirPath, '\', filesep);
 % drop last path separator if specified
-if ( ('/' == dirPath(end)) || ('\' == dirPath(end)) )
+if ( (filesep == dirPath(end)) )
     dirPath = dirPath(1:end-1);
 end
 %
@@ -69,7 +69,7 @@ end
 % search recursive
 %
 files = {};
-files = listFile_recursion( files, dirPath, '.', p.Results.name, 0, p.Results.subfolder );
+files = listFile_recursion( files, dirPath, '.', p.Results.name, p.Results.subfolder );
 %
 
 
@@ -129,16 +129,16 @@ end
 
 
 %%
-function files = listFile_recursion( files, entryPath, curPath, fileName, curSubDir, maxSubDir )
+function files = listFile_recursion( files, entryPath, curPath, fileName, maxSubDir )
 %%  Usage
 %%  =====
 %%
 %%  Arguments:
 %%  ----------
 %%    files         cell        -> listing of files which meet given specification
+%%    entryPath     char        -> start path for folder/file discover
 %%    curPath       char        -> current file search path
 %%    fileName      char        -> file name with extension to search for, wildcards ('*') allowed
-%%    curSubDir     integer     -> current sub folder recursion deep
 %%    maxSubDir     integer     -> maximum sub folder recursion deep
 %%
 %%  Return:
@@ -162,12 +162,12 @@ end
 
 % list dirs in current dir
 %
-listing = dir(curPath); % list complete content
+listing = dir(cstrcat(entryPath, filesep, curPath));    % list complete content
 for i=1:length(listing)
     if ( 1 == listing(i).isdir )    % directory found
         if ( (1 ~= strcmp(listing(i).name, '.')) && (1 ~= strcmp(listing(i).name, '..')) )
-            if ( maxSubDir > curSubDir )    % go one dir level deeper
-                files = listFile_recursion( files, entryPath, cstrcat(curPath, filesep, listing(i).name), fileName, curSubDir+1, maxSubDir );
+            if ( maxSubDir > length(strfind(curPath, filesep)) )    % go one dir level deeper
+                files = listFile_recursion( files, entryPath, cstrcat(curPath, filesep, listing(i).name), fileName, maxSubDir );
             end
         end
     end
